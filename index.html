@@ -14,6 +14,7 @@
       --accent: #38bdf8;
       --accent-hover: #0ea5e9;
       --success: #22c55e;
+      --danger: #ef4444;
       --border: #334155;
     }
 
@@ -31,7 +32,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justifyContent: center;
+      justify-content: center;
       padding: 1.5rem;
     }
 
@@ -57,12 +58,18 @@
       padding: 0.35rem 0.85rem;
       border-radius: 9999px;
       margin-bottom: 1.25rem;
+      transition: color 0.2s, background-color 0.2s;
+    }
+
+    .badge.offline {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
     }
 
     .badge .dot {
       width: 8px;
       height: 8px;
-      background: var(--success);
+      background: currentColor;
       border-radius: 50%;
       display: inline-block;
       animation: pulse 2s infinite;
@@ -129,12 +136,17 @@
       text-decoration: none;
       border-radius: 10px;
       cursor: pointer;
-      transition: background-color 0.2s, transform 0.1s;
+      transition: background-color 0.2s, transform 0.1s, opacity 0.2s;
       border: none;
     }
 
-    .btn:active {
+    .btn:active:not(:disabled) {
       transform: scale(0.98);
+    }
+
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
     }
 
     .btn-primary {
@@ -142,7 +154,7 @@
       color: #0f172a;
     }
 
-    .btn-primary:hover {
+    .btn-primary:hover:not(:disabled) {
       background-color: var(--accent-hover);
     }
 
@@ -152,7 +164,7 @@
       color: var(--text-main);
     }
 
-    .btn-secondary:hover {
+    .btn-secondary:hover:not(:disabled) {
       background-color: rgba(255, 255, 255, 0.05);
     }
 
@@ -165,7 +177,7 @@
 </head>
 <body>
   <main class="container">
-    <div class="badge">
+    <div class="badge" id="badge-indicator">
       <span class="dot"></span>
       <span id="bot-status">Sistem Berjalan Normal</span>
     </div>
@@ -177,7 +189,7 @@
 
     <section class="stats-grid" aria-label="Statistik Bot">
       <div class="stat-card">
-        <div class="stat-value" id="stat-ping">24 ms</div>
+        <div class="stat-value" id="stat-ping">-</div>
         <div class="stat-label">Latensi</div>
       </div>
       <div class="stat-card">
@@ -206,30 +218,42 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      // Set tahun copyright secara otomatis
       const yearEl = document.getElementById('year');
       if (yearEl) {
         yearEl.textContent = new Date().getFullYear();
       }
 
-      // Tombol simulasi refresh status
       const refreshBtn = document.getElementById('refresh-btn');
       const pingEl = document.getElementById('stat-ping');
       const statusEl = document.getElementById('bot-status');
+      const badge = document.getElementById('badge-indicator');
 
-      if (refreshBtn && pingEl && statusEl) {
-        refreshBtn.addEventListener('click', () => {
-          refreshBtn.disabled = true;
-          refreshBtn.textContent = 'Memeriksa...';
-          
-          setTimeout(() => {
-            const randomPing = Math.floor(Math.random() * 30) + 15;
-            pingEl.textContent = `${randomPing} ms`;
-            statusEl.textContent = 'Sistem Terhubung';
-            refreshBtn.disabled = false;
-            refreshBtn.textContent = 'Cek Status Ulang';
-          }, 600);
-        });
+      async function checkHealth() {
+        if (!refreshBtn || !pingEl || !statusEl || !badge) return;
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = 'Memeriksa...';
+
+        const startTime = performance.now();
+        try {
+          // Melakukan probe request nyata ke origin/server
+          await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+          const latency = Math.round(performance.now() - startTime);
+          pingEl.textContent = `${latency} ms`;
+          statusEl.textContent = 'Sistem Terhubung';
+          badge.classList.remove('offline');
+        } catch (err) {
+          pingEl.textContent = 'N/A';
+          statusEl.textContent = 'Gagal Terhubung';
+          badge.classList.add('offline');
+        } finally {
+          refreshBtn.disabled = false;
+          refreshBtn.textContent = 'Cek Status Ulang';
+        }
+      }
+
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', checkHealth);
+        checkHealth(); // Cek koneksi nyata saat halaman pertama dimuat
       }
     });
   </script>
